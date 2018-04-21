@@ -9,14 +9,16 @@
 
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTRootView.h>
-+ @import GoogleMaps; // ============== add this line if you want to use Google Maps
+@import GoogleMaps;
+
 
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-+  [GMSServices provideAPIKey:@"AIzaSyByNuZOFhv3Q8X9fsgKRNWQ5WVRhWULVus"]; // ========== add this line using the api key obtained from Google Console
-  NSURL *jsCodeLocation;
+   NSURL *jsCodeLocation;
+   [GMSServices provideAPIKey:@"AIzaSyByNuZOFhv3Q8X9fsgKRNWQ5WVRhWULVus"];
+
 
   jsCodeLocation = [[RCTBundleURLProvider sharedSettings] jsBundleURLForBundleRoot:@"index" fallbackResource:nil];
 
