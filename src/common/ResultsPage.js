@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, Image, Linking, Platform } from 'react-native';
-import MapView, { AnimatedRegion, Animated, MapViewAnimated, ProviderPropType,  } from 'react-native-maps';
+import { View, Text, TouchableOpacity, Dimensions, Image, Linking } from 'react-native';
+import MapView, { AnimatedRegion, Animated  } from 'react-native-maps';
 import axios from 'react-native-axios';
 
 
@@ -8,20 +8,24 @@ const { width, height } = Dimensions.get('window');
 
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.0922;
-const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO
+const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
 export default class ResultsPage extends Component {
 
     state = {
-        mapPosition: new AnimatedRegion( {
-            latitude: 0,
-            longitude: 0,
-            latitudeDelta: 0,
-            longitudeDelta: 0,
+        userPosition: { // initial values
+            latitude: 37.33233141,
+            longitude: -122.0312186,
+        },
+        mapPosition: new AnimatedRegion({ // initial values
+            latitude: 37.33233141,
+            longitude: -122.0312186,
+            latitudeDelta: LATITUDE_DELTA,
+            longitudeDelta: LONGITUDE_DELTA,
         }),
         markerPosition: new AnimatedRegion({
-            latitude: 37.78825,
-            longitude: -122.4324,
+            latitude: 0,
+            longitude: 0,
         }),
         restaurantInfo: {
             name: '',
@@ -32,24 +36,24 @@ export default class ResultsPage extends Component {
         },
         searching: false,
 
-
     }
 
-    watchID: ?number = null;
 
     fetchAPI () {
+        var lat = this.state.userPosition.latitude;
+        var lon = this.state.userPosition.longitude;
         axios.get('http://wainnakel.com/api/v2/Generate.php',
             {
                 params: {
-                    'lat': 37.392252773939,
-                    'lon': -122.07848141439,
+                    'lat': lat,
+                    'lon': lon,
                     'lang': 'en',
                     'distance': 5000,
                 }
             })
             .then( response => {
                 console.log(response);
-                if(typeof response.data === "object") {
+                if(typeof response.data.name === "string") { // to make sure the response is valid
 
                     this.setState({mapPosition: new AnimatedRegion({
                             latitude: response.data.lat,
@@ -57,16 +61,14 @@ export default class ResultsPage extends Component {
                             latitudeDelta: LATITUDE_DELTA,
                             longitudeDelta: LONGITUDE_DELTA,
                         })});
+
                     const newCoordinate = {
                             latitude: response.data.lat,
                             longitude: response.data.lon,
                     };
+
                     this.state.markerPosition.timing(newCoordinate).start();
-                    // this.setState({markerPosition: new AnimatedRegion({
-                    //         latitude: response.data.lat,
-                    //         longitude: response.data.lon,
-                    //     })});
-                    this.state.mapPosition.timing(newCoordinate).start();
+
                     this.setState({restaurantInfo: {
                             name: response.data.name,
                             latitude: response.data.lat,
@@ -78,7 +80,7 @@ export default class ResultsPage extends Component {
 
                     this.setState({searching: false});
                 } else {
-                    this.fetchAPI()
+                    this.fetchAPI(); // to recover from API errors.
                     this.setState({searching: false});
                 }
 
@@ -91,45 +93,43 @@ export default class ResultsPage extends Component {
 
     }
 
-    searchingFinished() {
-        this.setState({searching: false});
-    }
+    watchID: ?number = null;
 
     componentWillMount() {
+        // getting current user's location
+
         navigator.geolocation.getCurrentPosition((position) => {
             var lat = parseFloat(position.coords.latitude);
             var long = parseFloat(position.coords.longitude);
-
-            var initialRegion = new AnimatedRegion({
+            console.log(lat+'  '+ long);
+            var initialRegion = {
                 latitude: lat,
                 longitude: long,
-                latitudeDelta: LATITUDE_DELTA,
-                longitudeDelta: LONGITUDE_DELTA,
-            });
+            };
 
-            this.setState({mapPosition: initialRegion});
-            this.setState({markerPosition: initialRegion});
+            this.setState({userPosition: initialRegion});
+            // this.setState({markerPosition: initialRegion});
 
         },
-            (error) => alert(JSON.stringify(error)),
+            (error) => console.log(JSON.stringify(error)),
             {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000});
 
+        this.fetchAPI();
         this.watchID = navigator.geolocation.watchPosition((position) => {
             var lat = parseFloat(position.coords.latitude);
             var long = parseFloat(position.coords.longitude);
 
-            var lastRegion = new AnimatedRegion({
+            var lastRegion = {
                 latitude: lat,
                 longitude: long,
-                latitudeDelta: LATITUDE_DELTA,
-                longitudeDelta: LONGITUDE_DELTA,
-            })
+            }
 
-            this.setState({mapPosition: lastRegion});
-            this.setState({markerPosition: lastRegion});
+            this.setState({userPosition: lastRegion});
+            // this.setState({markerPosition: lastRegion});
 
         });
-        this.fetchAPI();
+
+
     }
 
     componentWillUnmount() {
@@ -137,37 +137,10 @@ export default class ResultsPage extends Component {
     }
 
 
-    // animate() {
-    //     const { mapPosition } = this.state;
-    //     const newCoordinate = {
-    //         latitude: mapPosition.latitude + ((Math.random() - 0.5) * (LATITUDE_DELTA / 2)),
-    //         longitude: mapPosition.longitude + ((Math.random() - 0.5) * (LONGITUDE_DELTA / 2)),
-    //     };
-    //
-    //     if (Platform.OS === 'android') {
-    //         if (this.marker) {
-    //             this.marker._component.animateMarkerToCoordinate(newCoordinate, 500);
-    //         }
-    //     } else {
-    //         this.state.markerPosition.timing(newCoordinate).start();
-    //     }
-    // }
-
     suggestPressed() {
-        // this.setState({mapPosition: {
-        //         latitude: 37.78825,
-        //         longitude: -122.4324,
-        //         latitudeDelta: LATITUDE_DELTA,
-        //         longitudeDelta: LONGITUDE_DELTA,
-        //     }});
-        // this.setState({markerPosition: {
-        //         latitude: 37.78825,
-        //         longitude: -122.4324,
-        //     }});
+
         this.setState({searching: true});
         this.fetchAPI();
-
-        // this.animate();
 
     }
 
@@ -261,25 +234,30 @@ export default class ResultsPage extends Component {
         )
     }
 
+    renderMap() {
+        return (
+            <MapView.Animated
+                style={styles.viewStyles}
+                region={this.state.mapPosition}
+            >
+                <MapView.Marker.Animated
+                    coordinate={this.state.markerPosition}
+                    ref={marker => { this.marker = marker; }}
+                    image={require('../img/marker.png')}
+
+                >
+
+                </MapView.Marker.Animated>
+
+            </MapView.Animated>
+        )
+    }
+
     render() {
         return (
             <View style={styles.viewStyles}
             >
-                <MapView.Animated
-                    // provider={this.props.provider}
-                    style={styles.viewStyles}
-                    region={this.state.mapPosition}
-                >
-                    <MapView.Marker.Animated
-                        coordinate={this.state.markerPosition}
-                        ref={marker => { this.marker = marker; }}
-                        image={require('../img/marker.png')}
-
-                    >
-
-                    </MapView.Marker.Animated>
-
-                </MapView.Animated>
+                {this.renderMap()}
                 {this.renderTopBar()}
                 <View style={styles.infoSection}>
                     <Text style={styles.restaurantName}>{this.state.restaurantInfo.name}</Text>
@@ -296,13 +274,8 @@ export default class ResultsPage extends Component {
 
 }
 
-// ResultsPage.propTypes = {
-//     provider: ProviderPropType,
-// };
-
 const styles = {
     viewStyles: {
-
         flex: 1,
     },
     buttonStyles: {
@@ -317,7 +290,9 @@ const styles = {
         left: (width-250)/2,
     },
     buttonTextStyles: {
-        color: "#fff"
+        color: "#fff",
+        fontFamily: 'CoconNextArabic-Light',
+        fontSize: 16,
     },
     topBar: {
         width: width,
@@ -339,6 +314,7 @@ const styles = {
         color: "rgba(57,124,140,1)",
         fontSize: 25,
         top: 20,
+        fontFamily: 'CoconNextArabic-Light'
 
     },
     categoryAndRating: {
@@ -346,6 +322,7 @@ const styles = {
         color: "#5b5b5b",
         fontSize: 15,
         top: 30,
+        fontFamily: 'CoconNextArabic-Light'
 
     },
     iconsView: {
@@ -365,8 +342,10 @@ const styles = {
     topBarText: {
         alignSelf: 'center',
         color: '#fff',
-        fontSize: 15,
+        fontSize: 18,
         marginRight: 5,
+        fontFamily: 'CoconNextArabic-Light'
+
     },
     topBarTitle: {
         flexDirection: 'row',
@@ -386,6 +365,7 @@ const styles = {
     topBarIcons: {
         width: 17,
         height: 17,
-    }
+    },
+
 }
 
