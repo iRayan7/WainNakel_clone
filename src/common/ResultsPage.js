@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, Image, Linking } from 'react-native';
-import MapView, { AnimatedRegion } from 'react-native-maps';
+import { View, Text, TouchableOpacity, Dimensions, Image, Linking, Platform } from 'react-native';
+import MapView, { AnimatedRegion, Animated, MapViewAnimated, ProviderPropType,  } from 'react-native-maps';
 import axios from 'react-native-axios';
 
 
@@ -13,23 +13,26 @@ const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO
 export default class ResultsPage extends Component {
 
     state = {
-        mapPosition: {
+        mapPosition: new AnimatedRegion( {
             latitude: 0,
             longitude: 0,
             latitudeDelta: 0,
             longitudeDelta: 0,
-        },
-        markerPosition: {
+        }),
+        markerPosition: new AnimatedRegion({
             latitude: 37.78825,
             longitude: -122.4324,
-        },
+        }),
         restaurantInfo: {
             name: '',
             latitude: 0,
             longitude: 0,
             rating: '',
             category: '',
-        }
+        },
+        searching: false,
+
+
     }
 
     watchID: ?number = null;
@@ -54,10 +57,16 @@ export default class ResultsPage extends Component {
                             latitudeDelta: LATITUDE_DELTA,
                             longitudeDelta: LONGITUDE_DELTA,
                         })});
-                    this.setState({markerPosition: {
+                    const newCoordinate = {
                             latitude: response.data.lat,
                             longitude: response.data.lon,
-                        }});
+                    };
+                    this.state.markerPosition.timing(newCoordinate).start();
+                    // this.setState({markerPosition: new AnimatedRegion({
+                    //         latitude: response.data.lat,
+                    //         longitude: response.data.lon,
+                    //     })});
+                    this.state.mapPosition.timing(newCoordinate).start();
                     this.setState({restaurantInfo: {
                             name: response.data.name,
                             latitude: response.data.lat,
@@ -65,11 +74,12 @@ export default class ResultsPage extends Component {
                             rating: response.data.rate,
                             category: response.data.cateName,
                         }
+                    });
 
-                    })
-
+                    this.setState({searching: false});
                 } else {
                     this.fetchAPI()
+                    this.setState({searching: false});
                 }
 
             })
@@ -77,33 +87,25 @@ export default class ResultsPage extends Component {
                 console.log(error);
             });
 
-        // var body = {
-        //     'lat': 37.392252773939,
-        //     'lon': -122.07848141439,
-        //     'lang': 'ar',
-        //     'distance': 5000,
-        // };
-        // fetch('http://wainnakel.com/api/v2/Generate.php?lat=37.36424153&lon=-122.12374717&lang=ar&distance=5000.0')
-        //     .then(response => response.json())
-        //     .then( (responseData) => { console.log(responseData); } )
-        //     .catch(error => console.log(error));
 
 
     }
 
-
+    searchingFinished() {
+        this.setState({searching: false});
+    }
 
     componentWillMount() {
         navigator.geolocation.getCurrentPosition((position) => {
             var lat = parseFloat(position.coords.latitude);
             var long = parseFloat(position.coords.longitude);
 
-            var initialRegion = {
+            var initialRegion = new AnimatedRegion({
                 latitude: lat,
                 longitude: long,
                 latitudeDelta: LATITUDE_DELTA,
                 longitudeDelta: LONGITUDE_DELTA,
-            };
+            });
 
             this.setState({mapPosition: initialRegion});
             this.setState({markerPosition: initialRegion});
@@ -116,12 +118,12 @@ export default class ResultsPage extends Component {
             var lat = parseFloat(position.coords.latitude);
             var long = parseFloat(position.coords.longitude);
 
-            var lastRegion = {
+            var lastRegion = new AnimatedRegion({
                 latitude: lat,
                 longitude: long,
                 latitudeDelta: LATITUDE_DELTA,
                 longitudeDelta: LONGITUDE_DELTA,
-            }
+            })
 
             this.setState({mapPosition: lastRegion});
             this.setState({markerPosition: lastRegion});
@@ -135,6 +137,21 @@ export default class ResultsPage extends Component {
     }
 
 
+    // animate() {
+    //     const { mapPosition } = this.state;
+    //     const newCoordinate = {
+    //         latitude: mapPosition.latitude + ((Math.random() - 0.5) * (LATITUDE_DELTA / 2)),
+    //         longitude: mapPosition.longitude + ((Math.random() - 0.5) * (LONGITUDE_DELTA / 2)),
+    //     };
+    //
+    //     if (Platform.OS === 'android') {
+    //         if (this.marker) {
+    //             this.marker._component.animateMarkerToCoordinate(newCoordinate, 500);
+    //         }
+    //     } else {
+    //         this.state.markerPosition.timing(newCoordinate).start();
+    //     }
+    // }
 
     suggestPressed() {
         // this.setState({mapPosition: {
@@ -147,7 +164,11 @@ export default class ResultsPage extends Component {
         //         latitude: 37.78825,
         //         longitude: -122.4324,
         //     }});
+        this.setState({searching: true});
         this.fetchAPI();
+
+        // this.animate();
+
     }
 
     renderIcons() {
@@ -194,38 +215,90 @@ export default class ResultsPage extends Component {
             )
     }
 
+    renderSuggestButton() {
+        if (this.state.searching) {
+            return (
+                <View
+                    style={styles.buttonStyles}
+                    onPress={this.suggestPressed.bind(this)}
+                >
+                    {<Image source={require('../img/30.gif')} />}
+                </View>
+            )
+        }
+
+        return (
+            <TouchableOpacity
+                style={styles.buttonStyles}
+                onPress={this.suggestPressed.bind(this)}
+            >
+                <Text style={styles.buttonTextStyles}>Suggest another</Text>
+            </TouchableOpacity>
+        )
+    }
+
+    renderTopBar() {
+        return (
+            <View style={styles.topBar}>
+                <View style={styles.topBarTitle}>
+                    <Text style={styles.topBarText}>Wain Nakel</Text>
+                    <Image source={require('../img/logo.png')}
+                           style={styles.topBarLogo}
+                    />
+                </View>
+                <TouchableOpacity style={styles.historyButton}>
+                    <Image source={require('../img/history-clock-button.png')}
+                           style={styles.topBarIcons}
+                    />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.menuButton}>
+                    <Image source={require('../img/menu.png')}
+                           style={styles.topBarIcons}
+                    />
+                </TouchableOpacity>
+            </View>
+
+        )
+    }
+
     render() {
         return (
-            <View style={styles.viewStyles}>
-                <MapView
+            <View style={styles.viewStyles}
+            >
+                <MapView.Animated
+                    // provider={this.props.provider}
                     style={styles.viewStyles}
                     region={this.state.mapPosition}
                 >
-                    <MapView.Marker
+                    <MapView.Marker.Animated
                         coordinate={this.state.markerPosition}
+                        ref={marker => { this.marker = marker; }}
+                        image={require('../img/marker.png')}
+
                     >
 
-                    </MapView.Marker>
-                </MapView>
-                <View style={styles.topBar}>
+                    </MapView.Marker.Animated>
 
-                </View>
+                </MapView.Animated>
+                {this.renderTopBar()}
                 <View style={styles.infoSection}>
                     <Text style={styles.restaurantName}>{this.state.restaurantInfo.name}</Text>
                     {this.renderCategoryAndRating()}
                     {this.renderIcons()}
                 </View>
-                <TouchableOpacity
-                    style={styles.buttonStyles}
-                    onPress={() => this.suggestPressed()}
-                    >
-                    <Text style={styles.buttonTextStyles}>Suggest another</Text>
-                </TouchableOpacity>
+                {this.renderSuggestButton()}
 
             </View>
         )
     }
+
+
+
 }
+
+// ResultsPage.propTypes = {
+//     provider: ProviderPropType,
+// };
 
 const styles = {
     viewStyles: {
@@ -251,6 +324,8 @@ const styles = {
         height: 55,
         backgroundColor: "rgba(57,124,140,0.9)",
         position: "absolute",
+        justifyContent: 'flex-end',
+
     },
     infoSection: {
         top: 55,
@@ -281,6 +356,36 @@ const styles = {
         top: 110,
         position: 'absolute',
         justifyContent: 'space-between',
+    },
+    topBarLogo: {
+        alignSelf: 'center',
+        width: 20,
+        height: 23,
+    },
+    topBarText: {
+        alignSelf: 'center',
+        color: '#fff',
+        fontSize: 15,
+        marginRight: 5,
+    },
+    topBarTitle: {
+        flexDirection: 'row',
+        alignSelf: 'center',
+        marginBottom: 5,
+    },
+    historyButton: {
+        position: 'absolute',
+        left:7,
+        bottom: 9,
+    },
+    menuButton: {
+        position: 'absolute',
+        left: width-27,
+        bottom: 9,
+    },
+    topBarIcons: {
+        width: 17,
+        height: 17,
     }
 }
 

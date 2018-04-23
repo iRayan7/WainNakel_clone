@@ -8,7 +8,9 @@ export default class SearchPage extends Component {
 
     render () {
         return (
-            <View style={styles.viewStyles}>
+            <View style={styles.viewStyles}
+            >
+
                 <TouchableOpacity
                     style={styles.buttonStyles}
                     onPress={() => this.props.navigation.navigate('ResultsPage')}>
